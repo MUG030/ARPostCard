@@ -10,9 +10,7 @@ public class TraceUI : MonoBehaviour
 
     public AudioSource audioSource; // 音楽を再生するためのAudioSource
 
-    private Vector2 previousMousePosition; // 前回のマウスの位置
-
-    private Vector2 previousTouchPosition; // 前回のタッチの位置
+    private Vector2 previousInputPosition; // 前回の入力の位置
 
     private int clockwiseCounter = 0; // 時計回りのカウンター
     private int counterClockwiseCounter = 0; // 反時計回りのカウンター
@@ -20,7 +18,7 @@ public class TraceUI : MonoBehaviour
     private Color targetColorRight;
     private Color targetColorLeft;
 
-     // 右のImageが選択されているかを判断する変数
+    // 右のImageが選択されているかを判断する変数
     private bool isRightPos = true, 
                  isRightNeg = true;
 
@@ -37,6 +35,9 @@ public class TraceUI : MonoBehaviour
 
     public Color[] colorPalette; // 色のパレット
 
+    // InputHandlerのインスタンスを作成
+    private InputHandler inputHandler = new InputHandler();
+
     // Start is called before the first frame update
     void Start()
     {
@@ -44,19 +45,24 @@ public class TraceUI : MonoBehaviour
         targetColorLeft = targetImageLeft.color; // 初期色を設定
     }
 
+
     // Update is called once per frame
     void Update()
     {
-        Vector2 touchPos;
+        // InputHandlerのUpdateメソッドを呼び出す
+        inputHandler.Update();
+
+        // InputHandlerのPositionプロパティを使用して現在の入力位置を取得
+        Vector2 inputPos;
 
         if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
         {
-            touchPos = Touchscreen.current.primaryTouch.position.ReadValue();
+            inputPos = Touchscreen.current.primaryTouch.position.ReadValue();
         }
         else
         {
             // タッチスクリーンが利用できない場合は、マウスの位置を使用
-            touchPos = Mouse.current.position.ReadValue();
+            inputPos = Mouse.current.position.ReadValue();
         }
 
         // Vector2 mousePos = Mouse.current.position.ReadValue();
@@ -64,15 +70,24 @@ public class TraceUI : MonoBehaviour
         RectTransform rectTransformRight = (RectTransform)targetImageRight.transform;
         RectTransform rectTransformLeft = (RectTransform)targetImageLeft.transform;
 
-        if ((Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed) || Mouse.current.leftButton.isPressed)
+        bool isTouching = false;
+
+        if (Touchscreen.current != null)
         {
+            var touch = Touchscreen.current.primaryTouch;
+            isTouching = touch.press.isPressed && touch.phase.ReadValue() != UnityEngine.InputSystem.TouchPhase.Ended && touch.phase.ReadValue() != UnityEngine.InputSystem.TouchPhase.Canceled;
+        }
+
+        if (isTouching || Mouse.current.leftButton.isPressed)
+        {
+            debugText.text = "Music Play Demo";
             // マウスの位置が右のImageの範囲内にあるかを確認
-            if (RectTransformUtility.RectangleContainsScreenPoint(rectTransformRight, touchPos, null))
+            if (RectTransformUtility.RectangleContainsScreenPoint(rectTransformRight, inputPos, null))
             {
                 ChangeColorRight();
 
                 // マウスの動きを判断
-                if (touchPos.y > previousTouchPosition.y && isRightNeg)
+                if (inputPos.y > previousInputPosition.y && isRightNeg)
                 {
                     Debug.Log("R反時計回り");
                     counterClockwiseCounter++;
@@ -82,7 +97,7 @@ public class TraceUI : MonoBehaviour
                     isLeftPos = true;
                     isRightNeg = false;
                 }
-                else if (touchPos.y < previousTouchPosition.y && isRightPos)
+                else if (inputPos.y < previousInputPosition.y && isRightPos)
                 {
                     Debug.Log("R時計回り");
                     clockwiseCounter++;
@@ -96,18 +111,16 @@ public class TraceUI : MonoBehaviour
                 // 音楽を再生
                 if (!audioSource.isPlaying)
                 {
-                    debugText.text = "Music Play";
                     audioSource.Play();
                 }
             }
-
             // マウスの位置が左のImageの範囲内にあるかを確認
-            if (RectTransformUtility.RectangleContainsScreenPoint(rectTransformLeft, touchPos, null))
+            else if (RectTransformUtility.RectangleContainsScreenPoint(rectTransformLeft, inputPos, null))
             {
                 ChangeColorLeft();
 
                 // マウスの動きを判断
-                if (touchPos.y > previousTouchPosition.y && isLeftPos)
+                if (inputPos.y > previousInputPosition.y && isLeftPos)
                 {
                     Debug.Log("L時計回り");
                     clockwiseCounter++;
@@ -117,7 +130,7 @@ public class TraceUI : MonoBehaviour
                     isLeftNeg = true;
                     isLeftPos = false;
                 }
-                else if (touchPos.y < previousTouchPosition.y && isLeftNeg)
+                else if (inputPos.y < previousInputPosition.y && isLeftNeg)
                 {
                     Debug.Log("L反時計回り");
                     counterClockwiseCounter++;
@@ -131,13 +144,13 @@ public class TraceUI : MonoBehaviour
                 // 音楽を再生
                 if (!audioSource.isPlaying)
                 {
-                    debugText.text = "Music Play";
                     audioSource.Play();
                 }
             }
         }
         else
         {
+            debugText.text = "Music Stop Demo";
             // マウスがなぞっていないときは音楽を停止
             if (audioSource.isPlaying)
             {
@@ -154,7 +167,7 @@ public class TraceUI : MonoBehaviour
         targetImageLeft.color = CurrentColorLeft;
 
         // 現在のタッチの位置を記録
-         previousTouchPosition = touchPos;
+        previousInputPosition = inputHandler.Position;
 
         // カウンターが10に達した場合の処理
         if (clockwiseCounter >= 10)
@@ -171,12 +184,14 @@ public class TraceUI : MonoBehaviour
 
     void ChangeColorRight()
     {
+        debugText.text = "Music Play";
         // 色のパレットからランダムに色を選択
         targetColorRight = colorPalette[Random.Range(0, colorPalette.Length)];
     }
 
     void ChangeColorLeft()
     {
+        debugText.text = "Music Play";
         // 色のパレットからランダムに色を選択
         targetColorLeft = colorPalette[Random.Range(0, colorPalette.Length)];
     }
