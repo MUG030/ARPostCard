@@ -1,8 +1,15 @@
 Shader "CustomRenderTexture/Diffuse"
 {
-    Properties
+    /*Properties
     {
         _MainTex ("Texture", 2D) = "white" {}
+    }*/
+    Properties {
+        _BaseMap ("Albedo (RGB)", 2D) = "white" {}
+        _BaseColor ("Color", Color) = (1,1,1,1)
+        _Smoothness ("Smoothness", Range(0,1)) = 0.5
+        _Metallic ("Metallic", Range(0,1)) = 0.0
+        _Snow("Snow", Range(0,2))= 0.0
     }
     SubShader
     {
@@ -58,7 +65,7 @@ Shader "CustomRenderTexture/Diffuse"
                 return o;
             }
 
-            float4 frag (v2f i) : SV_Target
+            /*float4 frag (v2f i) : SV_Target
             {
                 // sample the texture
                 float4 col = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i.uv);
@@ -77,6 +84,47 @@ Shader "CustomRenderTexture/Diffuse"
                 // apply fog
                 col.rgb = MixFog(col.rgb, i.fogFactor);
                 return col;
+            }*/
+
+            sampler2D _BaseMap;
+            float4 _BaseColor;
+            float _Smoothness;
+            float _Metallic;
+            float _Snow;
+
+            float4 frag (v2f i) : SV_Target
+            {
+                // sample the texture
+                float4 albedo = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+                // apply base color
+                albedo *= _BaseColor;
+
+                // get lighting information
+                Light light = GetMainLight();
+
+                // calculate the dot product of the pixel's normal and the light's direction
+                float t = dot(i.normal, light.direction);
+                // clamp the dot product to a value of 0 or higher
+                t = max(0, t);
+                // calculate the diffuse light
+                float3 diffuseLight = light.color * t;
+
+                // apply diffuse light
+                albedo.rgb *= diffuseLight;
+
+                // apply fog
+                albedo.rgb = MixFog(albedo.rgb, i.fogFactor);
+
+                // Snow effect
+                half d = dot(i.normal, half3(0, 1, 0));
+                half4 white = half4(1,1,1,1);
+                albedo.rgb = lerp(albedo.rgb, white.rgb, d*_Snow);
+
+                // apply metallic and smoothness
+                albedo.a = _Metallic;
+                albedo.g = _Smoothness;
+
+                return albedo;
             }
             ENDHLSL
         }
